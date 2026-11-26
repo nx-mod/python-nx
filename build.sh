@@ -36,6 +36,7 @@ cd "target/Python-${PYVER}"
 
 patch -p1 < "$ROOT/patches/switch-python.patch"
 cp "$ROOT/patches/pyconfig.h" pyconfig.h
+cp "$ROOT/patches/Setup.local" Modules/Setup.local
 
 export CONFIG_SITE="$PWD/config.site"
 export MODULE_BUILDTYPE=static

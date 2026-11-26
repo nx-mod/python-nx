@@ -1,0 +1,2 @@
+*static*
+zlib zlibmodule.c -lz

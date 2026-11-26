@@ -1,0 +1,131 @@
+--- a/configure
++++ b/configure
+@@ -4109,6 +4109,9 @@
+ 	*-*-linux-android*)
+ 		ac_sys_system=Linux-android
+ 		;;
++	aarch64-none-elf)
++		ac_sys_system=Linux
++		;;
+ 	*-*-linux*)
+ 		ac_sys_system=Linux
+ 		;;
+@@ -4582,6 +4585,9 @@
+ 
+ if test "$cross_compiling" = yes; then
+ 	case "$host" in
++	aarch64-none-elf)
++		ac_sys_system=Linux
++		;;
+ 	*-*-linux*)
+ 		case "$host_cpu" in
+ 		arm*)
+@@ -7239,7 +7245,7 @@
+     x86_64-pc-windows-msvc/msvc) :
+     PY_SUPPORT_TIER=1 ;; #(
+ 
+-  aarch64-*-linux-gnu/gcc) :
++  aarch64-*-linux-gnu/gcc|aarch64-none-elf/gcc) :
+     PY_SUPPORT_TIER=2 ;; #(
+     aarch64-*-linux-gnu/clang) :
+     PY_SUPPORT_TIER=2 ;; #(
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -1,3 +1,4 @@
++#include <sys/socket.h>
+ /* POSIX module implementation */
+ 
+ /* This file is also used for Windows NT/MS-Win.  In that case the
+@@ -6549,10 +6550,10 @@
+     return utimes(path, time);
+ #elif defined(HAVE_UTIME_H)
+     UTIME_TO_UTIMBUF;
+-    return utime(path, time);
++    errno=ENOENT; return -1;
+ #else
+     UTIME_TO_TIME_T;
+-    return utime(path, time);
++    errno=ENOENT; return -1;
+ #endif
+ }
+ 
+@@ -10786,19 +10787,18 @@
+     _posixstate *state = get_posix_state(module);
+     long ticks_per_second = state->ticks_per_second;
+ 
+-    struct tms process;
+     clock_t elapsed;
+     errno = 0;
+-    elapsed = times(&process);
++    elapsed = 0;
+     if (elapsed == (clock_t) -1) {
+         return posix_error();
+     }
+ 
+     return build_times_result(module,
+-        (double)process.tms_utime / ticks_per_second,
+-        (double)process.tms_stime / ticks_per_second,
+-        (double)process.tms_cutime / ticks_per_second,
+-        (double)process.tms_cstime / ticks_per_second,
++        (double)0,
++        (double)0,
++        (double)0,
++        (double)0,
+         (double)elapsed / ticks_per_second);
+ #endif /* MS_WINDOWS */
+ }
+--- a/Modules/socketmodule.c
++++ b/Modules/socketmodule.c
+@@ -1773,7 +1773,7 @@
+         return Py_BuildValue("iy#",
+                              addr->sa_family,
+                              addr->sa_data,
+-                             sizeof(addr->sa_data));
++                             28);
+ 
+     }
+ }
+--- a/Modules/timemodule.c
++++ b/Modules/timemodule.c
+@@ -190,7 +190,7 @@
+ #elif defined(__DragonFly__)
+     long clk_id = PyLong_AsLong(obj);
+ #else
+-    int clk_id = PyLong_AsInt(obj);
++    long clk_id = PyLong_AsLong(obj);
+ #endif
+     if (clk_id == -1 && PyErr_Occurred()) {
+         PyErr_Format(PyExc_TypeError,
+@@ -200,7 +200,7 @@
+     }
+ 
+     // Make sure that we picked the right type (check sizes type)
+-    Py_BUILD_ASSERT(sizeof(clk_id) == sizeof(*p));
++
+     *p = (clockid_t)clk_id;
+     return 1;
+ }
+--- a/Objects/exceptions.c
++++ b/Objects/exceptions.c
+@@ -4306,8 +4306,8 @@
+ #if defined(WSAEINPROGRESS) && !defined(EINPROGRESS)
+ #define EINPROGRESS WSAEINPROGRESS
+ #endif
+-#if defined(WSAESHUTDOWN) && !defined(ESHUTDOWN)
+-#define ESHUTDOWN WSAESHUTDOWN
++#if defined(WSAEPIPE) && !defined(EPIPE)
++#define EPIPE WSAEPIPE
+ #endif
+ #if defined(WSAEWOULDBLOCK) && !defined(EWOULDBLOCK)
+ #define EWOULDBLOCK WSAEWOULDBLOCK
+@@ -4478,8 +4478,8 @@
+     ADD_ERRNO(BlockingIOError, EINPROGRESS);
+     ADD_ERRNO(BlockingIOError, EWOULDBLOCK);
+     ADD_ERRNO(BrokenPipeError, EPIPE);
+-#ifdef ESHUTDOWN
+-    ADD_ERRNO(BrokenPipeError, ESHUTDOWN);
++#ifdef EPIPE
++    ADD_ERRNO(BrokenPipeError, EPIPE);
+ #endif
+     ADD_ERRNO(ChildProcessError, ECHILD);
+     ADD_ERRNO(ConnectionAbortedError, ECONNABORTED);

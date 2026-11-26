@@ -129,3 +129,18 @@
  #endif
      ADD_ERRNO(ChildProcessError, ECHILD);
      ADD_ERRNO(ConnectionAbortedError, ECONNABORTED);
+--- a/Python/bootstrap_hash.c
++++ b/Python/bootstrap_hash.c
+@@ -493,6 +493,12 @@
+         return 0;
+     }
+ 
++#ifdef __SWITCH__
++    extern void randomGet(void*, size_t);
++    randomGet(buffer, (size_t)size);
++    return 0;
++#endif
++
+ #ifdef MS_WINDOWS
+     return win32_urandom((unsigned char *)buffer, size, raise);
+ #else

@@ -37,7 +37,10 @@ cd "target/Python-${PYVER}"
 patch -p1 < "$ROOT/patches/switch-python.patch"
 cp "$ROOT/patches/pyconfig.h" pyconfig.h
 cp "$ROOT/patches/Setup.local" Modules/Setup.local
-printf 'ac_cv_file__dev_ptmx=no\nac_cv_file__dev_tty=no\nac_cv_file__dev_ptc=no\nac_cv_header_sys_resource_h=no\nac_cv_header_ffi_h=no\nac_cv_header_sys_statvfs_h=no\nac_cv_have_decl_tzname=no\nac_cv_var_tzname=no\n' > config.site
+printf 'ac_cv_file__dev_ptmx=no\nac_cv_file__dev_tty=no\nac_cv_file__dev_ptc=no\nac_cv_header_sys_resource_h=no\nac_cv_header_ffi_h=no\nac_cv_header_sys_statvfs_h=no\nac_cv_have_decl_tzname=no\nac_cv_var_tzname=no\nac_cv_func_dirfd=no\nac_cv_have_decl_dirfd=no\nac_cv_func_fork=no\nac_cv_func_setgroups=no\nac_cv_have_decl_setgroups=no\nac_cv_func_fchdir=no\nac_cv_have_decl_fchdir=no\n' > config.site
+for name in chroot fchown lchown getgrouplist initgroups seteuid setegid fdatasync; do
+  printf 'ac_cv_func_%s=no\nac_cv_have_decl_%s=no\n' "$name" "$name" >> config.site
+done
 
 export CONFIG_SITE="$PWD/config.site"
 export PKG_CONFIG_LIBDIR=/nonexistent
@@ -61,6 +64,29 @@ start = s.index('init_timezone(PyObject *m)\n{')
 end = s.index('\n}\n', start) + 3
 s = s[:start] + 'init_timezone(PyObject *m)\n{\n    return 0;\n}\n' + s[end:]
 p.write_text(s)
+
+for module, source in (
+    ('_posixsubprocess', '_posixsubprocess'),
+    ('pyexpat', 'pyexpat'),
+    ('_elementtree', '_elementtree'),
+    ('_md5', 'md5module'),
+    ('_sha1', 'sha1module'),
+    ('_sha2', 'sha2module'),
+    ('_sha3', 'sha3module'),
+    ('_blake2', 'blake2module'),
+    ('_hmac', 'hmacmodule'),
+    ('_bz2', 'bz2module'),
+    ('_lzma', '_lzmamodule'),
+    ('_zstd', '_zstd/_zstdmodule'),
+    ('_decimal', '_decimal/_decimal'),
+    ('_remote_debugging', '_remote_debugging_module'),
+):
+    Path(f'Modules/{source}.c').write_text(
+        '#include <Python.h>\n'
+        f'PyMODINIT_FUNC PyInit_{module}(void)\n'
+        '{\n'
+        '    return NULL;\n'
+        '}\n')
 PY
 
 make -j"${JOBS:-4}" libpython${PYMAJOR}.a

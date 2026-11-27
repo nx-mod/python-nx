@@ -1,2 +1,4 @@
 *static*
 zlib zlibmodule.c -lz
+math mathmodule.c
+_sqlite3 _sqlite/blob.c _sqlite/connection.c _sqlite/cursor.c _sqlite/microprotocols.c _sqlite/module.c _sqlite/prepare_protocol.c _sqlite/row.c _sqlite/statement.c _sqlite/util.c -lsqlite3

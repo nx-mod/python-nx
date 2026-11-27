@@ -37,8 +37,10 @@ cd "target/Python-${PYVER}"
 patch -p1 < "$ROOT/patches/switch-python.patch"
 cp "$ROOT/patches/pyconfig.h" pyconfig.h
 cp "$ROOT/patches/Setup.local" Modules/Setup.local
+printf 'ac_cv_file__dev_ptmx=no\nac_cv_file__dev_tty=no\nac_cv_file__dev_ptc=no\nac_cv_header_sys_resource_h=no\nac_cv_header_ffi_h=no\nac_cv_header_sys_statvfs_h=no\nac_cv_have_decl_tzname=no\nac_cv_var_tzname=no\n' > config.site
 
 export CONFIG_SITE="$PWD/config.site"
+export PKG_CONFIG_LIBDIR=/nonexistent
 export MODULE_BUILDTYPE=static
 export CFLAGS="-g -O2 -ffunction-sections -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -D_GNU_SOURCE -I${PREFIX}/include -I${DEVKITPRO}/libnx/include"
 export CXXFLAGS="$CFLAGS -fno-rtti -fno-exceptions"
@@ -47,8 +49,19 @@ export LDFLAGS="-L${PREFIX}/lib -specs=${DEVKITPRO}/libnx/switch.specs"
 ./configure --host="$HOST" --build=x86_64-linux-gnu \
   --prefix="$PREFIX" --disable-shared --without-ensurepip \
   --disable-test-modules --disable-ipv6 --without-system-expat \
-  --without-system-libmpdec --without-readline \
+  --without-system-libmpdec --without-readline --without-mimalloc \
   --with-build-python="$WORK/host/bin/python${PYMAJOR}"
+
+grep -q '^#define SSIZE_MAX' pyconfig.h || printf '#define SSIZE_MAX 0x7fffffffffffffffL\n' >> pyconfig.h
+python3 - <<'PY'
+from pathlib import Path
+p = Path('Modules/timemodule.c')
+s = p.read_text()
+start = s.index('init_timezone(PyObject *m)\n{')
+end = s.index('\n}\n', start) + 3
+s = s[:start] + 'init_timezone(PyObject *m)\n{\n    return 0;\n}\n' + s[end:]
+p.write_text(s)
+PY
 
 make -j"${JOBS:-4}" libpython${PYMAJOR}.a
 
